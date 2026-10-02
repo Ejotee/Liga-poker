@@ -906,7 +906,7 @@ function playerDetail(id){
       ${S.players.length>1?`<h3>Unir con otro jugador</h3><p class="sub" style="font-size:.85rem;margin-top:-4px">Si esta persona está registrada dos veces (por ejemplo, con nombre y con apodo), pasa todo su historial al otro registro y borra este.</p>
       <div class="row"><select class="in" id="mergeInto" style="flex:1;min-width:160px" aria-label="Jugador destino"><option value="">Elige el registro que se queda…</option>${S.players.filter(x=>x.id!==id).sort((a,b)=>a.name.localeCompare(b.name,'es')).map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('')}</select>
       <button class="btn" data-act="mergePlayer" data-id="${esc(id)}">Unir historial</button></div>`:''}
-      <div class="dlg-foot">${!hist.length?`<button class="btn danger" data-act="delPlayer" data-id="${esc(id)}">Borrar jugador</button>`:''}<button class="btn primary" data-act="savePlayer" data-id="${esc(id)}">Guardar cambios</button></div>` : '';
+      <div class="dlg-foot"><button class="btn danger" data-act="delPlayer" data-id="${esc(id)}">Borrar jugador</button><button class="btn primary" data-act="savePlayer" data-id="${esc(id)}">Guardar cambios</button></div>` : '';
   const linkInfo = S.role==='admin' ? (pr ? `<p class="sub" style="font-size:.85rem">Cuenta vinculada: ${esc(S.userNames[pr.uid]||'un usuario')} <button class="btn ghost" data-act="unlinkUser" data-uid="${esc(pr.uid)}">Desvincular</button></p>` : '<p class="sub" style="font-size:.85rem">Sin cuenta vinculada todavía.</p>') : '';
   const backN=S.backTo&&S.nights.find(x=>x.id===S.backTo&&x.status==='live');
   openModal(`<div class="dlg-head" style="margin-bottom:4px">${backN?`<button class="btn sm" data-act="viewNight" data-id="${esc(backN.id)}">← Volver a la mesa</button>`:'<span></span>'}<button class="x" data-act="close" aria-label="Cerrar">×</button></div>
@@ -1057,7 +1057,16 @@ const A={
     for(const n of affected){ const {id,...rest}=n; const ok=await save('nights',id,{...rest,results:n.results.map(r=>r.playerId===from?{...r,playerId:into}:r),knockouts:(n.knockouts||[]).map(k=>({by:k.by===from?into:k.by,victim:k.victim===from?into:k.victim}))}); if(!ok) return; }
     const pr=profileOf(from); if(pr && db){ try{ const {uid,...rest}=pr; await db.collection('profiles').doc(uid).set({...rest,playerId:into}); }catch(_){} }
     if(await removeDoc('players',from)){ closeModal(); toast('Historial unido'); } },
-  delPlayer:async ds=>{ if(!confirm('¿Borrar este jugador?')) return; if(await removeDoc('players',ds.id)){ closeModal(); toast('Jugador borrado'); } },
+  delPlayer:async ds=>{ const pid=ds.id; const name=realName(pid)||pname(pid);
+    const hist=S.nights.filter(n=>(n.results||[]).some(r=>r.playerId===pid)); const live=hist.filter(n=>n.status==='live'||n.status==='scheduled');
+    const links=profilesOf(pid);
+    if(live.length) return toast(`${name} está en una jornada en vivo o programada. Quítalo de ahí o cierra la jornada primero.`);
+    let msg=`¿Borrar a ${name}?`;
+    if(links.length) msg+=`\n\nSu cuenta se desvinculará${links.length>1?` (${links.length} cuentas)`:''}. Podrá seguir entrando; si ya no quieres que entre, quítale el acceso en Ajustes > Miembros.`;
+    if(hist.length) msg+=`\n\nAparece en ${hist.length} jornada${hist.length>1?'s':''}: esos resultados se quedan, pero se mostrarán como "Jugador eliminado". Si eran de prueba, mejor borra esas jornadas primero.`;
+    if(!confirm(msg)) return;
+    if(hist.length && prompt('Para confirmar, escribe BORRAR')!=='BORRAR') return toast('No se borró nada.');
+    try{ const b=writeBatch(fsdb); b.delete(doc(fsdb,'players',pid)); links.forEach(l=>b.delete(doc(fsdb,'profiles',l.uid))); await b.commit(); closeModal(); toast(name+' borrado'); }catch(e){ onDbErr(e); } },
   markPaid:async ds=>{ const n=S.nights.find(x=>x.id===ds.night); if(!n) return; const {id,...rest}=n;
     const results=n.results.map(r=>r.playerId===ds.player?{...r,paid:true}:r); if(await save('nights',id,{...rest,results})) toast('Pago registrado'); },
   saveSettings:async()=>{ const points=parseList($('#cfgPoints').value), payout=parseList($('#cfgPayout').value);
@@ -1115,7 +1124,7 @@ const A={
     try{ await setDoc(doc(fsdb,'requests',S.uid),{email:S.email,name,at:nowISO()}); S.editReq=false; S.myRequest={email:S.email,name}; render(); toast('Solicitud enviada'); }catch(e){ toast('No se pudo enviar. Intenta de nuevo.'); } },
   editRequest:()=>{ S.editReq=true; render(); setTimeout(()=>{ const i=$('#reqName'); if(i) i.focus(); },0); },
   denyReq:async ds=>{ if(!confirm('¿Rechazar esta solicitud?')) return; try{ await deleteDoc(doc(fsdb,'requests',ds.uid)); }catch(e){ onDbErr(e); } },
-  removeMember:async ds=>{ if(!confirm('¿Quitarle el acceso a la liga? Su historial de jugador se conserva.')) return; try{ const b=writeBatch(fsdb); b.delete(doc(fsdb,'members',ds.uid)); b.delete(doc(fsdb,'admins',ds.uid)); await b.commit(); toast('Acceso retirado'); }catch(e){ onDbErr(e); } },
+  removeMember:async ds=>{ if(!confirm('¿Quitarle el acceso a la liga? Ya no podrá entrar. Su jugador y su historial se conservan.')) return; try{ const b=writeBatch(fsdb); b.delete(doc(fsdb,'members',ds.uid)); b.delete(doc(fsdb,'admins',ds.uid)); if(S.profiles[ds.uid]) b.delete(doc(fsdb,'profiles',ds.uid)); await b.commit(); toast('Acceso retirado'); }catch(e){ onDbErr(e); } },
   toggleAdmin:async ds=>{ try{ if(S.admins[ds.uid]) await deleteDoc(doc(fsdb,'admins',ds.uid)); else await setDoc(doc(fsdb,'admins',ds.uid),{at:new Date().toISOString()}); }catch(e){ onDbErr(e); } },
   importBackup:async()=>{ const f=$('#importFile').files[0]; if(!f) return toast('Elige el archivo de respaldo.');
     let data; try{ data=JSON.parse(await f.text()); }catch(_){ return toast('El archivo no es un JSON válido.'); }
