@@ -303,7 +303,29 @@ label.deal-row{grid-template-columns:auto 1fr auto}
 .summary-img{display:block;width:100%;max-width:440px;margin:0 auto;border:1px solid var(--line2);border-radius:4px}
 input[type=time]{border:1px solid var(--line2);background:#0E0E10;border-radius:4px;padding:9px 10px;width:100%;color:var(--ink);font-family:var(--body);font-size:1rem;color-scheme:dark}
 .stat b small{font-size:.9rem;color:var(--muted);font-family:var(--body)}
-#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--metal-flat);color:#0B0B0C;padding:10px 18px;border-radius:4px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%;box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.hero-live{position:relative;overflow:hidden;border:1px solid rgba(192,57,62,.65);border-radius:8px;padding:22px 18px 18px;margin-bottom:20px;
+  background:radial-gradient(500px 220px at 85% -20%,rgba(192,57,62,.35),transparent 70%),linear-gradient(180deg,#1C0F11,#0E0909)}
+.hero-live::after{content:"\2660";position:absolute;right:14px;top:-6px;font-size:7rem;color:rgba(255,255,255,.04);pointer-events:none}
+.hero-live .kicker{color:#F2A3A6}
+.hero-live h2{font-size:clamp(1.5rem,6vw,2.1rem);margin:2px 0 6px}
+.hero-live .nums{display:flex;gap:18px;flex-wrap:wrap;color:#D4D6DB;font-size:.95rem;margin-bottom:16px}
+.hero-live .nums b{font-family:var(--display);font-size:1.25rem;color:#fff;margin-right:4px}
+.hero-actions{display:grid;gap:10px}
+.btn-xl{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:16px 18px;border-radius:8px;cursor:pointer;
+  font-family:var(--display);font-weight:700;font-size:1.05rem;letter-spacing:.14em;text-transform:uppercase;border:1px solid var(--line2);background:transparent;color:var(--ink)}
+.btn-xl.primary{background:var(--metal-flat);color:#0B0B0C;border-color:#E6E7EA;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.btn-xl.alert{background:linear-gradient(180deg,#C0393E,#8E2226);color:#fff;border-color:#E0666A}
+.btn-xl:active{transform:scale(.985)}
+.livebar{position:fixed;left:0;right:0;bottom:0;z-index:30;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(7,7,8,0),rgba(7,7,8,.92) 30%);display:flex;justify-content:center}
+.livebar .btn-xl{max-width:560px;min-height:58px}
+body.has-livebar main{padding-bottom:110px}
+.victims.big{grid-template-columns:repeat(2,1fr);gap:12px}
+.victims.big .victim{padding:20px 8px;font-size:1.05rem}
+.victims.big .victim .av{width:4rem;height:4rem;font-size:2rem}
+.inapp{border:1px solid rgba(226,190,94,.6);background:#1B1609;border-radius:6px;padding:12px 14px;margin:0 0 14px;font-size:.92rem;line-height:1.5}
+.inapp b{color:#E2BE5E}
+.req-item{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+#toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--metal-flat);color:#0B0B0C;padding:10px 18px;border-radius:4px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90%;box-shadow:0 10px 30px rgba(0,0,0,.6)}
 #toast.show{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}.btn{transition:none}}
 </style>
@@ -329,6 +351,7 @@ input[type=time]{border:1px solid var(--line2);background:#0E0E10;border-radius:
 <footer class="foot"><div class="motto-box"><span>A nadie le importa</span><strong>lo que foldeaste.</strong></div>
 <div class="legal"><b>+18</b>Consulta el reglamento antes de jugar</div></footer>
 <dialog id="modal"><div class="dlg" id="modalBody"></div></dialog>
+<div id="livebar" class="livebar" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
@@ -441,7 +464,8 @@ function render(){
   $('.tabs').hidden=!inApp; $('#seasonWrap').hidden=!inApp; $('#logoutBtn').hidden = !(S.mode==='live'||S.mode==='pending');
   if(S.mode==='setup'){ n.hidden=true; app.innerHTML=`<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>Falta configurar Firebase</h2><p class="sub">Abre <b>config.js</b> y pega los datos de tu proyecto de Firebase y tu correo de administrador. La guía de instalación explica cómo.</p></div>`; return; }
   if(S.mode==='login'){ n.hidden=true; app.innerHTML=viewLogin(); return; }
-  if(S.mode==='pending'){ n.hidden=true; app.innerHTML=`<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>Solicitud enviada</h2><p class="sub">Entraste como <b>${esc(S.email)}</b>. El administrador de la liga tiene que aprobar tu acceso. Esta pantalla se actualiza sola cuando te aprueben.</p></div>`; return; }
+  if(S.mode==='pending'){ n.hidden=true; app.innerHTML=viewPending(); return; }
+  if(S.mode==='pending_old'){ n.hidden=true; app.innerHTML=`<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>Solicitud enviada</h2><p class="sub">Entraste como <b>${esc(S.email)}</b>. El administrador de la liga tiene que aprobar tu acceso. Esta pantalla se actualiza sola cuando te aprueben.</p></div>`; return; }
   if(S.mode==='loading' || (S.mode==='live' && !(S.loaded.players && S.loaded.nights && S.loaded.seasons && S.loaded.config))){ app.innerHTML='<p class="sub">Cargando la liga…</p>'; return; }
   const views={tabla:viewTabla,noches:viewNoches,jugadores:viewJugadores,dinero:viewDinero,perfil:viewPerfil,ajustes:viewAjustes};
   const ae=document.activeElement; const typing = ae && ae.dataset && ae.dataset.pf && app.contains(ae);
@@ -449,10 +473,25 @@ function render(){
   const mae=document.activeElement; const modalBusy = modal.open && mae && modal.contains(mae) && /^(INPUT|SELECT|TEXTAREA)$/.test(mae.tagName);
   if(modal.open && S.modalView && !S.draft && !modalBusy) S.modalView();
   if(S.mode==='live' && !S.draft) maybePrompt();
+  updateLivebar();
 }
 
+const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|Snapchat|musical_ly|TikTok|; wv\)|GSA\//i.test(navigator.userAgent||'');
+function viewPending(){
+  const r=S.myRequest; const editing=!r||!r.name||S.editReq;
+  if(editing) return `<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>¿Cómo te llamamos?</h2>
+    <p class="sub">Escribe tu nombre o apodo de la liga. Así aparecerás en la tabla y en las jornadas.</p>
+    <label class="f">Nombre o apodo<input type="text" id="reqName" maxlength="30" value="${esc((r&&r.name)||S.displayName||'')}" autocomplete="nickname"></label>
+    <button class="btn-xl primary" style="margin-top:14px" data-act="sendRequest">Enviar solicitud</button>
+    <p class="sub" style="font-size:.82rem;margin-top:12px">Entraste como ${esc(S.email)}.</p></div>`;
+  return `<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>Solicitud enviada</h2>
+    <p class="sub">Listo, <b>${esc(r.name)}</b>. El administrador tiene que aprobarte; esta pantalla se actualiza sola cuando lo haga.</p>
+    <button class="btn" data-act="editRequest">Cambiar mi nombre</button></div>`;
+}
 function viewLogin(){
   return `<div class="panel auth"><img class="auth-logo" src="${LOGO_SRC}" alt="OG Poker League"><h2>Entrar a la liga</h2><p class="sub">Solo pueden entrar los jugadores que apruebe el administrador.</p>
+    ${IN_APP?`<div class="inapp"><b>Abre esta página en Chrome o Safari.</b> Estás dentro de WhatsApp u otra app, y ahí Google no deja iniciar sesión. Toca los tres puntos o el botón de compartir y elige <b>"Abrir en el navegador"</b>, o copia el link y pégalo en Chrome o Safari.
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-act="copyLink">Copiar link</button></div></div>`:''}
     <button class="btn primary" data-act="loginGoogle">Entrar con Google</button>
     <div class="or">o con correo</div>
     <label class="f">Correo<input type="text" id="lgEmail" inputmode="email" autocomplete="email"></label>
@@ -617,12 +656,18 @@ function accessSection(){
   const reqs=Object.entries(S.requests).sort((a,b)=>(a[1].at||'').localeCompare(b[1].at||''));
   const mems=Object.entries(S.members).sort((a,b)=>(a[1].name||a[1].email||'').localeCompare(b[1].name||b[1].email||'','es'));
   const who=m=>esc(m.name||m.email||'Sin nombre');
+  const linked=new Set(Object.values(S.profiles).map(p=>p.playerId).filter(Boolean));
+  const freeOpts=()=>S.players.filter(p=>!linked.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name,'es')).map(p=>`<option value="${esc(p.id)}">Es ${esc(p.name)} (ya existe)</option>`).join('');
   return `<h3>Solicitudes de acceso</h3>
-    ${reqs.length?`<div class="list">${reqs.map(([uid,r])=>`<div class="item" style="cursor:default"><div><b>${who(r)}</b><div class="meta">${esc(r.email||'')}</div></div>
-      <div class="row"><button class="btn sm primary" data-act="approve" data-uid="${esc(uid)}">Aprobar</button><button class="btn sm danger" data-act="denyReq" data-uid="${esc(uid)}">Rechazar</button></div></div>`).join('')}</div>`:'<p class="sub">No hay solicitudes pendientes. Comparte el link de la página y pide a cada amigo que entre; aquí aparecerá su solicitud.</p>'}
+    ${reqs.length?`<div class="list">${reqs.map(([uid,r])=>`<div class="req-item"><div><b>${who(r)}</b><div class="meta">${esc(r.email||'')}</div></div>
+      <select class="in" id="rq_${esc(uid)}" aria-label="Cómo aprobar a ${who(r)}"><option value="">Crear jugador nuevo: ${who(r)}</option>${freeOpts()}</select>
+      <div class="row"><button class="btn primary" data-act="approve" data-uid="${esc(uid)}">Aprobar</button><button class="btn danger" data-act="denyReq" data-uid="${esc(uid)}">Rechazar</button></div></div>`).join('')}</div>`
+      :'<p class="sub">No hay solicitudes pendientes. Comparte el link de la página; cuando alguien se registre aparecerá aquí con el nombre que eligió.</p>'}
     <h3>Miembros (${mems.length})</h3>
-    ${mems.length?`<div class="list">${mems.map(([uid,m])=>`<div class="item" style="cursor:default"><div><b>${who(m)}</b> ${S.admins[uid]?'<span class="tag on">Admin</span>':''}<div class="meta">${esc(m.email||'')}</div></div>
-      <div class="row">${S.isOwnerUser?`<button class="btn sm" data-act="toggleAdmin" data-uid="${esc(uid)}">${S.admins[uid]?'Quitar admin':'Hacer admin'}</button>`:''}${uid!==S.uid?`<button class="btn sm danger" data-act="removeMember" data-uid="${esc(uid)}">Quitar acceso</button>`:''}</div></div>`).join('')}</div>`:''}
+    ${mems.length?`<div class="list">${mems.map(([uid,m])=>{ const pr=S.profiles[uid]; const pid=pr&&pr.playerId&&S.players.some(p=>p.id===pr.playerId)?pr.playerId:null;
+      return `<div class="req-item"><div class="row" style="justify-content:space-between"><div class="who-cell">${pid?avatar(pid):''}<div><b>${pid?esc(pname(pid)):who(m)}</b> ${S.admins[uid]?'<span class="tag on">Admin</span>':''}<div class="meta">${esc(m.email||'')}${pid?'':' · <span class="neg">sin jugador vinculado</span>'}</div></div></div>
+        <div class="row">${S.isOwnerUser?`<button class="btn sm" data-act="toggleAdmin" data-uid="${esc(uid)}">${S.admins[uid]?'Quitar admin':'Hacer admin'}</button>`:''}${uid!==S.uid?`<button class="btn sm danger" data-act="removeMember" data-uid="${esc(uid)}">Quitar acceso</button>`:''}</div></div>
+        ${pid?'':`<div class="row"><select class="in" id="lk_${esc(uid)}" style="flex:1;min-width:180px" aria-label="Vincular jugador"><option value="">Crear jugador nuevo: ${who(m)}</option>${freeOpts()}</select><button class="btn sm primary" data-act="linkMember" data-uid="${esc(uid)}">Vincular</button></div>`}</div>`; }).join('')}</div>`:''}
     ${S.isOwnerUser?`<h3>Importar respaldo</h3><div class="panel"><p class="sub" style="margin-top:0">Carga el archivo <b>liga-poker-datos.json</b> para traer jornadas, jugadores, temporadas y ajustes. Si un registro ya existe con el mismo ID, se reemplaza.</p>
       <input type="file" id="importFile" accept=".json,application/json"> <button class="btn primary" data-act="importBackup">Importar</button></div>`:''}`;
 }
@@ -662,9 +707,9 @@ function viewAjustes(){
 
 /* ---------- modals ---------- */
 const modal=$('#modal');
-function openModal(html){ $('#modalBody').innerHTML=html; if(!modal.open) modal.showModal(); }
+function openModal(html){ $('#modalBody').innerHTML=html; if(!modal.open) modal.showModal(); const b=$('#livebar'); if(b) b.hidden=true; }
 function closeModal(){ S.promptKey=null; S.draft=null; S.modalView=null; modal.close(); }
-modal.addEventListener('close',()=>{ if(modal.open) return; if(S.promptKey) S.snoozed[S.promptKey]=true; S.promptKey=null; S.draft=null; S.modalView=null; });
+modal.addEventListener('close',()=>{ if(modal.open) return; setTimeout(updateLivebar,0); if(S.promptKey) S.snoozed[S.promptKey]=true; S.promptKey=null; S.draft=null; S.modalView=null; });
 
 function nightDetail(id){
   S.modalView=()=>nightDetail(id);
@@ -954,14 +999,35 @@ const A={
     if(!by||!victim) return toast('Elige quién eliminó y a quién.'); if(by===victim) return toast('Un jugador no puede eliminarse a sí mismo.');
     d.knockouts=[...(d.knockouts||[]),{by,victim}]; nightForm(); const b=$('#koBy'); if(b) b.focus(); },
   delKO:ds=>{ const d=S.draft; if(!d) return; d.knockouts.splice(num(ds.i),1); nightForm(); },
-  loginGoogle:async()=>{ S.authErr=''; const pr=new GoogleAuthProvider(); try{ await signInWithPopup(auth,pr); }catch(e){ if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){ await signInWithRedirect(auth,pr); } else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request'){ S.authErr=authMsg(e); render(); } } },
+  loginGoogle:async()=>{ S.authErr=''; const pr=new GoogleAuthProvider(); pr.setCustomParameters({prompt:'select_account'});
+    try{ await signInWithPopup(auth,pr); }
+    catch(e){ const c=e&&e.code||''; if(c==='auth/popup-closed-by-user'||c==='auth/cancelled-popup-request') return;
+      S.authErr = c==='auth/popup-blocked' ? 'Tu navegador bloqueó la ventana de Google. Permite las ventanas emergentes para esta página o entra con correo y contraseña.'
+        : (c==='auth/operation-not-supported-in-this-environment'||c==='auth/web-storage-unsupported'||IN_APP) ? 'Este navegador no permite entrar con Google. Abre la página en Chrome o Safari, o entra con correo y contraseña.'
+        : c==='auth/network-request-failed' ? 'Sin conexión. Revisa tu internet e intenta de nuevo.' : authMsg(e);
+      render(); } },
+  copyLink:async()=>{ try{ await navigator.clipboard.writeText(location.href); toast('Link copiado. Pégalo en Chrome o Safari.'); }catch(_){ prompt('Copia este link:',location.href); } },
   loginEmail:async()=>{ S.authErr=''; try{ await signInWithEmailAndPassword(auth,$('#lgEmail').value.trim(),$('#lgPass').value); }catch(e){ S.authErr=authMsg(e); render(); } },
   signupEmail:async()=>{ S.authErr=''; const name=$('#lgName').value.trim(); if(!name){ S.authErr='Escribe tu nombre para crear la cuenta.'; return render(); }
     try{ const cr=await createUserWithEmailAndPassword(auth,$('#lgEmail').value.trim(),$('#lgPass').value); await updateProfile(cr.user,{displayName:name}); await handleUser(cr.user); }catch(e){ S.authErr=authMsg(e); render(); } },
   resetPass:async()=>{ const em=$('#lgEmail').value.trim(); if(!em){ S.authErr='Escribe tu correo arriba y vuelve a presionar.'; return render(); }
     try{ await sendPasswordResetEmail(auth,em); toast('Te enviamos un correo para cambiar tu contraseña.'); }catch(e){ S.authErr=authMsg(e); render(); } },
   logout:async()=>{ await signOut(auth); },
-  approve:async ds=>{ const r=S.requests[ds.uid]; if(!r) return; try{ const b=writeBatch(fsdb); b.set(doc(fsdb,'members',ds.uid),{email:r.email||'',name:r.name||'',approvedAt:new Date().toISOString()}); b.delete(doc(fsdb,'requests',ds.uid)); await b.commit(); toast('Acceso aprobado'); }catch(e){ onDbErr(e); } },
+  approve:async ds=>{ const r=S.requests[ds.uid]; if(!r) return; const sel=$('#rq_'+CSS.escape(ds.uid)); const existing=sel?sel.value:'';
+    const name=String(r.name||r.email||'Jugador').trim().slice(0,30);
+    try{ const b=writeBatch(fsdb); let pid=existing;
+      if(!pid){ pid=newId('p'); b.set(doc(fsdb,'players',pid),{name,active:true,createdAt:nowISO()}); }
+      else { const p=S.players.find(x=>x.id===pid); if(p&&p.active===false){ const {id,...rest}=p; b.set(doc(fsdb,'players',pid),{...rest,active:true}); } }
+      b.set(doc(fsdb,'profiles',ds.uid),{playerId:pid,linkedAt:nowISO()});
+      b.set(doc(fsdb,'members',ds.uid),{email:r.email||'',name,approvedAt:nowISO()}); b.delete(doc(fsdb,'requests',ds.uid)); await b.commit();
+      toast(`${name} ya es parte de la liga`); }catch(e){ onDbErr(e); } },
+  linkMember:async ds=>{ const m=S.members[ds.uid]; if(!m) return; const sel=$('#lk_'+CSS.escape(ds.uid)); let pid=sel?sel.value:''; const name=String(m.name||m.email||'Jugador').trim().slice(0,30);
+    try{ const b=writeBatch(fsdb); if(!pid){ pid=newId('p'); b.set(doc(fsdb,'players',pid),{name,active:true,createdAt:nowISO()}); }
+      else { const p=S.players.find(x=>x.id===pid); if(p&&p.active===false){ const {id,...rest}=p; b.set(doc(fsdb,'players',pid),{...rest,active:true}); } }
+      const cur=S.profiles[ds.uid]||{}; b.set(doc(fsdb,'profiles',ds.uid),{...cur,playerId:pid,linkedAt:cur.linkedAt||nowISO()}); await b.commit(); toast('Jugador vinculado'); }catch(e){ onDbErr(e); } },
+  sendRequest:async()=>{ const name=$('#reqName').value.trim().slice(0,30); if(!name){ $('#reqName').focus(); return toast('Escribe tu nombre o apodo.'); }
+    try{ await setDoc(doc(fsdb,'requests',S.uid),{email:S.email,name,at:nowISO()}); S.editReq=false; S.myRequest={email:S.email,name}; render(); toast('Solicitud enviada'); }catch(e){ toast('No se pudo enviar. Intenta de nuevo.'); } },
+  editRequest:()=>{ S.editReq=true; render(); setTimeout(()=>{ const i=$('#reqName'); if(i) i.focus(); },0); },
   denyReq:async ds=>{ if(!confirm('¿Rechazar esta solicitud?')) return; try{ await deleteDoc(doc(fsdb,'requests',ds.uid)); }catch(e){ onDbErr(e); } },
   removeMember:async ds=>{ if(!confirm('¿Quitarle el acceso a la liga? Su historial de jugador se conserva.')) return; try{ const b=writeBatch(fsdb); b.delete(doc(fsdb,'members',ds.uid)); b.delete(doc(fsdb,'admins',ds.uid)); await b.commit(); toast('Acceso retirado'); }catch(e){ onDbErr(e); } },
   toggleAdmin:async ds=>{ try{ if(S.admins[ds.uid]) await deleteDoc(doc(fsdb,'admins',ds.uid)); else await setDoc(doc(fsdb,'admins',ds.uid),{at:new Date().toISOString()}); }catch(e){ onDbErr(e); } },
@@ -1100,7 +1166,7 @@ function claimSheet(nightId){
   const others=alive(n).map(r=>r.playerId).filter(id=>id!==me).sort((a,b)=>pname(a).localeCompare(pname(b),'es'));
   const mine=claimItems(nightId).filter(c=>c.uid===S.uid).reverse();
   openModal(`<div class="dlg-head"><div><h2>¿A quién eliminaste?</h2><p class="sub" style="margin:0">${esc(nightTitle(n))} · tócalo al momento de eliminarlo</p></div><button class="x" data-act="close" aria-label="Cerrar">×</button></div>
-    ${others.length?`<div class="victims">${others.map(id=>`<button class="victim" data-act="claimKO" data-night="${esc(nightId)}" data-victim="${esc(id)}">${avatar(id,'md')}<span>${esc(pname(id))}</span></button>`).join('')}</div>`:'<p class="sub">No queda nadie más en pie.</p>'}
+    ${others.length?`<div class="victims big">${others.map(id=>`<button class="victim" data-act="claimKO" data-night="${esc(nightId)}" data-victim="${esc(id)}">${avatar(id,'md')}<span>${esc(pname(id))}</span></button>`).join('')}</div>`:'<p class="sub">No queda nadie más en pie.</p>'}
     <h3>Tus eliminaciones de esta noche</h3>
     ${mine.length?`<div class="kolist">${mine.map(c=>{ const st=claimStatus(n,c.key); const ko=(n.knockouts||[]).find(k=>k.claim===c.key);
       return `<div class="ko">Eliminaste a <b>${esc(pname(c.victim))}</b> ${st==='ok'?`<span class="tag on">${ko&&ko.kind==='rebuy'?'Rebuy':'Fuera'}</span>`:st==='no'?'<span class="tag due">Rechazada</span>':`<span class="tag wait">${c.choice==='rebuy'?'Eligió rebuy':c.choice==='out'?'Se rindió':c.choice==='dispute'?'Lo disputa':'Esperando respuesta'}</span>`}
@@ -1190,12 +1256,12 @@ function liveView(n){
   const way=onTheWay(n);
   const feed=feedOf(n);
   openModal(`<div class="dlg-head"><div><p class="kicker"><span class="dot"></span>En vivo${n.place?' · '+esc(n.place):''}</p><h2>${esc(nightTitle(n))}</h2></div><button class="x" data-act="close" aria-label="Cerrar">×</button></div>
+    ${myP.map(p=>`<button class="btn-xl alert" style="margin-bottom:10px" data-act="${p.type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(p.type==='ko'?p.c.key:p.d.key)}">${p.type==='ko'?`${esc(pname(p.c.by))} te eliminó · responder`:'Tienes un trato por votar'}</button>`).join('')}
+    ${meSeat&&!meSeat.out?`<button class="btn-xl primary" style="margin-bottom:12px" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button>`:''}
     <div class="stats"><div class="stat"><b>${al.length}<small> / ${seated(n).length}</small></b><span>En pie</span></div><div class="stat"><b>${money(c.total,false)}</b><span>Bote (MXN)</span></div>
       <div class="stat"><b>${seated(n).reduce((a,r)=>a+num(r.rebuys),0)}</b><span>Rebuys</span></div><div class="stat"><b>${(n.knockouts||[]).length}</b><span>Eliminaciones</span></div></div>
     ${moneyBox(n)}
     ${al.length===1&&seated(n).length>1?`<div class="champ">${avatar(al[0].playerId,'xl')}<div><p class="kicker">Último en pie</p><h2>${esc(pname(al[0].playerId))}</h2></div></div>`:''}
-    ${myP.map(p=>`<button class="btn primary" style="width:100%;margin-bottom:10px" data-act="${p.type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(p.type==='ko'?p.c.key:p.d.key)}">${p.type==='ko'?`${esc(pname(p.c.by))} te eliminó · responder`:'Tienes un trato por votar'}</button>`).join('')}
-    ${meSeat&&!meSeat.out?`<button class="btn" style="width:100%;margin-bottom:6px" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button>`:''}
     ${dealPanel(n)}
     ${S.role==='admin'?adminLivePanel(n):''}
     <h3>En la mesa (${al.length})</h3>
@@ -1220,6 +1286,15 @@ function scheduledView(n){
 const rsvpButtons=(n,mine)=>`<div class="rsvp">${[['voy','Voy'],['tarde','Llego tarde'],['no','No voy']].map(([k,l])=>`<button class="btn" data-act="rsvp" data-night="${esc(n.id)}" data-v="${k}" aria-pressed="${mine===k}">${l}</button>`).join('')}</div>`;
 
 /* --- banners arriba de la página --- */
+function updateLivebar(){
+  const bar=$('#livebar'); if(!bar) return; const me=myPlayer(); let html='';
+  if(S.mode==='live'){ const n=S.nights.find(x=>x.status==='live'); if(n){ const seat=seated(n).find(r=>r.playerId===me); const myP=myPrompts().filter(p=>p.n.id===n.id); const pend=pendingClaims(n).length;
+    if(myP.length) html=`<button class="btn-xl alert" data-act="${myP[0].type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(myP[0].type==='ko'?myP[0].c.key:myP[0].d.key)}">${myP[0].type==='ko'?'Te eliminaron · responder':'Votar el trato'}</button>`;
+    else if(seat&&!seat.out) html=`<button class="btn-xl primary" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button>`;
+    else if(S.role==='admin'&&pend) html=`<button class="btn-xl primary" data-act="viewNight" data-id="${esc(n.id)}">Aprobar ${pend} ${pend===1?'eliminación':'eliminaciones'}</button>`;
+    else html=`<button class="btn-xl" style="background:rgba(20,20,22,.95)" data-act="viewNight" data-id="${esc(n.id)}"><span class="dot"></span>${esc(nightTitle(n))} en vivo</button>`; } }
+  bar.innerHTML=html; bar.hidden=!html||modal.open; document.body.classList.toggle('has-livebar',!!html);
+}
 function liveBanner(){
   const me=myPlayer(); let html='';
   S.nights.filter(n=>n.status==='scheduled').sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(n=>{
@@ -1227,14 +1302,17 @@ function liveBanner(){
     html+=`<div class="upcoming"><div><p class="kicker">Próxima jornada</p><b>${esc(nightTitle(n))}</b><div class="meta">${n.time?'A las '+esc(n.time)+' · ':''}${(c=>c===1?'1 va':c+' van')(v.filter(x=>x==='voy').length)} · ${(c=>c===1?'1 llega tarde':c+' llegan tarde')(v.filter(x=>x==='tarde').length)}</div></div>
       <div class="row">${me?rsvpButtons(n,mine):''}<button class="btn sm" data-act="viewNight" data-id="${esc(n.id)}">${S.role==='admin'?'Ver e iniciar':'Ver'}</button></div></div>`; });
   S.nights.filter(n=>n.status==='live').forEach(n=>{
-    const seat=seated(n).find(r=>r.playerId===me); const myP=myPrompts().filter(p=>p.n.id===n.id); const pend=pendingClaims(n).length; const al=alive(n).length;
-    let action;
-    if(myP.length) action=`<button class="btn" data-act="${myP[0].type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(myP[0].type==='ko'?myP[0].c.key:myP[0].d.key)}">${myP[0].type==='ko'?'Te eliminaron · responder':'Votar trato'}</button>`;
-    else if(S.role==='admin') action=`<button class="btn" data-act="viewNight" data-id="${esc(n.id)}">${pend?`Aprobar ${pend}`:'Mesa en vivo'}</button>`;
-    else if(seat&&!seat.out) action=`<button class="btn" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button><button class="btn" data-act="viewNight" data-id="${esc(n.id)}">Ver</button>`;
-    else action=`<button class="btn" data-act="viewNight" data-id="${esc(n.id)}">Ver en vivo</button>`;
-    const notSeatedRsvp = me && !seat && S.role!=='viewer';
-    html+=`<div class="live"><div><span class="dot"></span><b>${esc(nightTitle(n))} en vivo</b><div style="font-size:.88rem;opacity:.9">${al} en pie de ${seated(n).length} · bote ${money(nightCalc(n).total)}${n.deal?' · trato cerrado':''}</div></div><div class="row">${notSeatedRsvp?rsvpButtons(n,rsvpOf(n)[me]||null):''}${action}</div></div>`; });
+    const seat=seated(n).find(r=>r.playerId===me); const myP=myPrompts().filter(p=>p.n.id===n.id); const pend=pendingClaims(n).length; const al=alive(n).length; const c=nightCalc(n);
+    let acts='';
+    if(myP.length) acts+=`<button class="btn-xl alert" data-act="${myP[0].type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(myP[0].type==='ko'?myP[0].c.key:myP[0].d.key)}">${myP[0].type==='ko'?'Te eliminaron · responder':'Votar el trato'}</button>`;
+    if(seat&&!seat.out) acts+=`<button class="btn-xl primary" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button>`;
+    if(S.role==='admin') acts+=`<button class="btn-xl ${seat&&!seat.out?'':'primary'}" data-act="viewNight" data-id="${esc(n.id)}">${pend?`Aprobar ${pend} ${pend===1?'eliminación':'eliminaciones'}`:'Administrar la mesa'}</button>`;
+    else acts+=`<button class="btn-xl" data-act="viewNight" data-id="${esc(n.id)}">Ver la mesa en vivo</button>`;
+    const notSeated = me && !seat && S.role!=='viewer';
+    html+=`<section class="hero-live" aria-label="Jornada en vivo"><p class="kicker"><span class="dot"></span>En vivo ahora${n.place?' · '+esc(n.place):''}</p><h2>${esc(nightTitle(n))}</h2>
+      <div class="nums"><span><b>${al}</b>en pie de ${seated(n).length}</span><span><b>${money(c.total,false)}</b>de bote</span>${n.deal?'<span><b>Trato</b>cerrado</span>':''}</div>
+      <div class="hero-actions">${acts}</div>
+      ${notSeated?`<p class="sub" style="margin:14px 0 6px;font-size:.85rem">¿Vienes en camino? Avísale a la mesa:</p>${rsvpButtons(n,rsvpOf(n)[me]||null)}`:''}</section>`; });
   return html;
 }
 
@@ -1365,7 +1443,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); i
   const f=A[b.dataset.act]; if(f){ e.preventDefault(); f(b.dataset,b); } });
 modal.addEventListener('click',e=>{ if(e.target===modal) closeModal(); });
 $('#seasonSel').addEventListener('change',e=>{ S.season=e.target.value; render(); });
-document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='newPlayer') A.addPlayer(); if(e.target.id==='seasonName') A.addSeason(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='reqName') A.sendRequest(); if(e.target.id==='newPlayer') A.addPlayer(); if(e.target.id==='seasonName') A.addSeason(); } });
 
 document.addEventListener('input',e=>{ const t=e.target; if(t.dataset.pf && S.draftProfile){ S.draftProfile[t.dataset.pf]=t.value; } });
 async function shrinkPhoto(file){
@@ -1420,8 +1498,8 @@ async function handleUser(user){
   if(!member){ try{ member=(await getDoc(doc(fsdb,'members',user.uid))).exists(); }catch(_){ member=false; } }
   if(member && !admin){ try{ admin=(await getDoc(doc(fsdb,'admins',user.uid))).exists(); }catch(_){} }
   if(!member){
-    S.mode='pending'; render();
-    try{ await setDoc(doc(fsdb,'requests',user.uid),{email:S.email,name:user.displayName||'',at:new Date().toISOString()}); }catch(_){}
+    S.displayName=user.displayName||''; S.myRequest=null; S.editReq=false; S.mode='pending'; render();
+    unsubs.push(onSnapshot(doc(fsdb,'requests',user.uid),s=>{ S.myRequest=s.exists()?s.data():null; if(S.mode==='pending'&&!document.activeElement?.id?.startsWith('reqName')) render(); },()=>{}));
     unsubs.push(onSnapshot(doc(fsdb,'members',user.uid),s=>{ if(s.exists()) handleUser(auth.currentUser); },()=>{}));
     return;
   }
