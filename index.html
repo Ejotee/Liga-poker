@@ -632,7 +632,7 @@ function viewAjustes(){
     return `<div class="item" style="cursor:default"><div><b>${esc(s.name)}</b> ${c.activeSeason===s.id?'<span class="tag on">Activa</span>':''}
       <div class="meta">Inicia ${fdate(s.start)} · ${count} noches</div></div>
       ${S.canWrite?`<div class="row">${c.activeSeason!==s.id?`<button class="btn sm" data-act="activateSeason" data-id="${esc(s.id)}">Hacer activa</button>`:''}
-      ${!count?`<button class="btn sm danger" data-act="delSeason" data-id="${esc(s.id)}">Borrar</button>`:''}</div>`:''}</div>`; }).join('')
+      <button class="btn sm danger" data-act="delSeason" data-id="${esc(s.id)}">${count?`Borrar con sus ${count} jornadas`:'Borrar'}</button></div>`:''}</div>`; }).join('')
     : '<p class="sub">Todavía no hay temporadas.</p>';
   return `<h2>Ajustes de la liga</h2><p class="sub">Reglas de puntos, premios y costos. Los puntos se recalculan en toda la tabla al cambiar la tabla de puntos.</p>
     <div class="panel"><div class="grid">
@@ -652,7 +652,11 @@ function viewAjustes(){
       <input type="text" id="seasonName" placeholder="Ej. Temporada Otoño 2026" style="flex:2;min-width:180px" aria-label="Nombre de la temporada">
       <input type="date" id="seasonStart" value="${today()}" style="flex:1;min-width:140px" aria-label="Fecha de inicio">
       <button class="btn primary" data-act="addSeason">Crear temporada</button></div></div>`:''}
-    <div class="list">${slist}</div>`;
+    <div class="list">${slist}</div>
+    ${S.canWrite?(()=>{ const used=new Set(); S.nights.forEach(n=>(n.results||[]).forEach(r=>used.add(r.playerId))); const linked=new Set(Object.values(S.profiles).map(p=>p.playerId).filter(Boolean));
+      const orphans=S.players.filter(p=>!used.has(p.id)&&!linked.has(p.id));
+      return `<h3>Limpieza de jugadores</h3><div class="panel"><p class="sub" style="margin-top:0">${orphans.length?`Hay ${orphans.length} jugador${orphans.length>1?'es':''} sin ninguna jornada jugada y sin cuenta vinculada: ${orphans.map(p=>esc(p.name)).join(', ')}.`:'Todos los jugadores tienen jornadas o una cuenta vinculada.'}</p>
+        ${orphans.length?`<button class="btn danger" data-act="cleanPlayers">Borrar ${orphans.length} jugador${orphans.length>1?'es':''} sin historial</button>`:''}</div>`; })():''}`;
 }
 
 /* ---------- modals ---------- */
@@ -932,7 +936,18 @@ const A={
   addSeason:async()=>{ const name=$('#seasonName').value.trim(); const start=$('#seasonStart').value||today(); if(!name) return $('#seasonName').focus();
     const id=newId('s'); if(await save('seasons',id,{name,start})){ if(!S.config.activeSeason){ await saveConfig({...S.config,activeSeason:id}); } S.season=id; toast('Temporada creada'); render(); } },
   activateSeason:async ds=>{ if(await saveConfig({...S.config,activeSeason:ds.id})){ S.season=ds.id; toast('Temporada activa actualizada'); } },
-  delSeason:async ds=>{ if(!confirm('¿Borrar esta temporada?')) return; if(await removeDoc('seasons',ds.id)){ if(S.season===ds.id) S.season=null; pickSeason(); render(); } },
+  delSeason:async ds=>{ const se=S.seasons.find(x=>x.id===ds.id); if(!se) return; const ns=S.nights.filter(n=>n.seasonId===ds.id);
+    if(!confirm(ns.length?`¿Borrar la temporada "${se.name}" y sus ${ns.length} jornadas? Se borran sus resultados, puntos, eliminaciones y dinero. No se puede deshacer.`:`¿Borrar la temporada "${se.name}"?`)) return;
+    if(ns.length && prompt(`Para confirmar, escribe BORRAR`)!=='BORRAR') return toast('No se borró nada.');
+    try{ const ids=[...ns.map(n=>['nights',n.id]),['seasons',ds.id]];
+      for(let i=0;i<ids.length;i+=400){ const b=writeBatch(fsdb); ids.slice(i,i+400).forEach(([c,id])=>b.delete(doc(fsdb,c,id))); await b.commit(); }
+      if(S.config.activeSeason===ds.id) await saveConfig({...S.config,activeSeason:null});
+      if(S.season===ds.id) S.season=null; pickSeason(); render(); toast(`Temporada borrada${ns.length?` con ${ns.length} jornadas`:''}`);
+    }catch(e){ onDbErr(e); } },
+  cleanPlayers:async()=>{ const used=new Set(); S.nights.forEach(n=>(n.results||[]).forEach(r=>used.add(r.playerId))); const linked=new Set(Object.values(S.profiles).map(p=>p.playerId).filter(Boolean));
+    const orphans=S.players.filter(p=>!used.has(p.id)&&!linked.has(p.id)); if(!orphans.length) return;
+    if(!confirm(`¿Borrar ${orphans.length} jugadores sin historial? (${orphans.map(p=>p.name).join(', ')})`)) return;
+    try{ for(let i=0;i<orphans.length;i+=400){ const b=writeBatch(fsdb); orphans.slice(i,i+400).forEach(p=>b.delete(doc(fsdb,'players',p.id))); await b.commit(); } toast(orphans.length+' jugadores borrados'); }catch(e){ onDbErr(e); } },
   autoPrize:()=>autoPrize(),
   addKO:()=>{ const d=S.draft; if(!d) return; const by=$('#koBy').value, victim=$('#koVictim').value;
     if(!by||!victim) return toast('Elige quién eliminó y a quién.'); if(by===victim) return toast('Un jugador no puede eliminarse a sí mismo.');
