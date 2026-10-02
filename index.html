@@ -237,6 +237,7 @@ input[type=checkbox]{accent-color:#E6E7EA;width:1.05rem;height:1.05rem}
 .lbl{display:none}
 .summary{position:sticky;bottom:0;background:#1B1B1E;border:1px solid var(--line2);border-radius:4px;padding:12px 14px;margin-top:14px;display:flex;flex-wrap:wrap;gap:6px 20px;font-variant-numeric:tabular-nums;font-size:.9rem}
 .summary b{font-weight:700;color:#fff}
+.summary.money-live{position:static;margin:0 0 4px;align-items:center}
 .err{color:var(--warn);font-weight:700;font-size:.9rem;margin-top:8px}
 
 /* Auth & brand screens */
@@ -403,7 +404,7 @@ function nightTitle(n){ return (n.jornada?`Jornada ${n.jornada}`:'Noche') + (n.d
 function nightSort(a,b){ if(a.seasonId===b.seasonId && a.jornada && b.jornada) return num(b.jornada)-num(a.jornada); return (b.date||'').localeCompare(a.date||'') || num(b.jornada)-num(a.jornada); }
 function nightCalc(n){
   const res=n.results||[]; let total=0; res.forEach(r=>total+=costOf(n,r));
-  const fund=n.costsUnknown?0:Math.round((num(n.seasonFee)*res.length + total*num(n.fundPct)/100)*100)/100; const prizes=res.reduce((a,r)=>a+num(r.prize),0);
+  const entries=res.length+res.reduce((a,r)=>a+num(r.rebuys),0); const fund=n.costsUnknown?0:Math.round((num(n.seasonFee)*entries + total*num(n.fundPct)/100)*100)/100; const prizes=res.reduce((a,r)=>a+num(r.prize),0);
   const winner=res.find(r=>num(r.position)===1);
   return { total, fund, pool: total-fund, prizes, players:res.length, winner: winner?winner.playerId:null };
 }
@@ -606,7 +607,7 @@ function viewDinero(){
       <div class="stat"><b class="${owed?'neg':''}">${money(owed,false)}</b><span>Adeudos pendientes</span></div>
     </div>
     ${unknownN?`<p class="sub" style="font-size:.85rem">${unknownN} ${unknownN===1?'jornada importada no tiene':'jornadas importadas no tienen'} costos de entrada capturados: sus premios cuentan en "Ganó", pero no entran en el total, el neto ni los adeudos.</p>`:''}
-    ${fund?`<p class="sub" style="font-size:.85rem">Es lo apartado para la mesa final: ${[num(S.config.fundPct)?num(S.config.fundPct)+'% de lo recaudado':'',num(S.config.seasonFee)?money(S.config.seasonFee)+' por jugador':''].filter(Boolean).join(' más ')||'según lo capturado'} en cada jornada.</p>`:''}
+    ${fund?`<p class="sub" style="font-size:.85rem">Es lo apartado para la mesa final: ${[num(S.config.fundPct)?num(S.config.fundPct)+'% de lo recaudado':'',num(S.config.seasonFee)?money(S.config.seasonFee)+' por cada buy-in y rebuy':''].filter(Boolean).join(' más ')||'según lo capturado'} en cada jornada.</p>`:''}
     <h3>Balance por jugador</h3>
     ${st.length?`<div class="panel scroll" style="padding:4px 6px"><table><thead><tr><th>Jugador</th><th class="n">Invirtió</th><th class="n">Ganó</th><th class="n">Neto</th><th class="n">Debe</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<p class="sub">Sin movimientos todavía.</p>'}
     <h3>Pagos pendientes</h3><div class="list">${pend}</div>`;
@@ -644,7 +645,7 @@ function viewAjustes(){
       <label class="f">Rebuy (MXN)<input type="number" id="cfgRebuy" value="${esc(c.rebuy)}" min="0" ${dis}></label>
       <label class="f">Add-on (MXN)<input type="number" id="cfgAdd" value="${esc(c.addOn)}" min="0" ${dis}></label>
       <label class="f">Fondo mesa final: % de lo recaudado<input type="number" id="cfgFundPct" value="${esc(c.fundPct||0)}" min="0" max="100" step="any" ${dis}></label>
-      <label class="f">Fondo mesa final: monto fijo por jugador (MXN)<input type="number" id="cfgFee" value="${esc(c.seasonFee)}" min="0" ${dis}></label>
+      <label class="f">Fondo mesa final: fijo por entrada, buy-in y rebuy (MXN)<input type="number" id="cfgFee" value="${esc(c.seasonFee)}" min="0" ${dis}></label>
     </div>${S.canWrite?'<div class="row" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" data-act="saveSettings">Guardar ajustes</button></div>':''}</div>
     ${accessSection()}
     <h3>Temporadas</h3>
@@ -849,7 +850,7 @@ function nightForm(){
       <label class="f">Rebuy (MXN)<input type="number" min="0" data-g="rebuy" value="${esc(d.rebuy)}"></label>
       <label class="f">Add-on (MXN)<input type="number" min="0" data-g="addOn" value="${esc(d.addOn)}"></label>
       <label class="f">Mesa final: % del bote<input type="number" min="0" max="100" step="any" data-g="fundPct" value="${esc(d.fundPct||0)}"></label>
-      <label class="f">Mesa final: fijo por jugador (MXN)<input type="number" min="0" data-g="seasonFee" value="${esc(d.seasonFee)}"></label>
+      <label class="f">Mesa final: fijo por entrada (MXN)<input type="number" min="0" data-g="seasonFee" value="${esc(d.seasonFee)}"></label>
     </div>
     <h3>Quién jugó</h3>
     <p class="sub" style="font-size:.85rem;margin-top:-4px">Marca a los jugadores; el lugar se llena en el orden en que los marcas y puedes corregirlo.</p>
@@ -1172,6 +1173,14 @@ function adminLivePanel(n){
     ${(n.knockouts||[]).length?`<h3>Últimas aprobadas</h3><div class="kolist">${(n.knockouts||[]).map((k,i)=>({k,i})).reverse().slice(0,6).map(({k,i})=>`<div class="ko"><span><b>${esc(pname(k.by))}</b> → <b>${esc(pname(k.victim))}</b> · ${k.kind==='rebuy'?'rebuy':k.kind==='out'?'fuera':'eliminación'}</span><button class="btn sm ghost" style="margin-left:auto" data-act="undoKO" data-night="${esc(n.id)}" data-i="${i}">Deshacer</button></div>`).join('')}</div>`:''}
   </div>`;
 }
+function moneyBox(n){
+  const c=nightCalc(n); const pct=(S.config.payout||[]);
+  const prizes = n.deal&&n.deal.amounts
+    ? Object.entries(n.deal.amounts).sort((x,y)=>y[1]-x[1]).map(([pid,v])=>`<span>${esc(pname(pid))} <b>${money(v)}</b></span>`).join('')
+    : (()=>{ const vals=pct.map(p=>Math.floor(c.pool*num(p)/100)); if(vals.length) vals[0]+=Math.round((c.pool-vals.reduce((a,b)=>a+b,0))*100)/100; return vals.map((v,i)=>`<span>${i+1}º <b>${money(v)}</b></span>`).join(''); })();
+  return `<div class="summary money-live"><span>Bote <b>${money(c.total)}</b></span>${c.fund?`<span>Mesa final <b>${money(c.fund)}</b></span>`:''}<span>A repartir <b>${money(c.pool)}</b></span></div>
+    <div class="summary money-live" style="margin-top:6px"><span class="kicker" style="margin:0">${n.deal?'Premios del trato':'Premios si terminara ahora'}</span>${prizes}</div>`;
+}
 function liveView(n){
   S.modalView=()=>nightDetail(n.id);
   const me=myPlayer(); const al=alive(n), out=outsOf(n), pos=livePositions(n); const c=nightCalc(n);
@@ -1183,6 +1192,7 @@ function liveView(n){
   openModal(`<div class="dlg-head"><div><p class="kicker"><span class="dot"></span>En vivo${n.place?' · '+esc(n.place):''}</p><h2>${esc(nightTitle(n))}</h2></div><button class="x" data-act="close" aria-label="Cerrar">×</button></div>
     <div class="stats"><div class="stat"><b>${al.length}<small> / ${seated(n).length}</small></b><span>En pie</span></div><div class="stat"><b>${money(c.total,false)}</b><span>Bote (MXN)</span></div>
       <div class="stat"><b>${seated(n).reduce((a,r)=>a+num(r.rebuys),0)}</b><span>Rebuys</span></div><div class="stat"><b>${(n.knockouts||[]).length}</b><span>Eliminaciones</span></div></div>
+    ${moneyBox(n)}
     ${al.length===1&&seated(n).length>1?`<div class="champ">${avatar(al[0].playerId,'xl')}<div><p class="kicker">Último en pie</p><h2>${esc(pname(al[0].playerId))}</h2></div></div>`:''}
     ${myP.map(p=>`<button class="btn primary" style="width:100%;margin-bottom:10px" data-act="${p.type==='ko'?'openVictim':'openDealVote'}" data-night="${esc(n.id)}" data-key="${esc(p.type==='ko'?p.c.key:p.d.key)}">${p.type==='ko'?`${esc(pname(p.c.by))} te eliminó · responder`:'Tienes un trato por votar'}</button>`).join('')}
     ${meSeat&&!meSeat.out?`<button class="btn" style="width:100%;margin-bottom:6px" data-act="claimSheet" data-id="${esc(n.id)}">Eliminé a alguien</button>`:''}
